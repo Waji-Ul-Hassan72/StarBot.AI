@@ -1,0 +1,13 @@
+// creates a connection b/w node.js(backend) and database
+const { Pool } = require('pg');
+require('dotenv').config();
+
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: String(process.env.DB_PASSWORD), // <-- Add String() here!
+  port: process.env.DB_PORT,
+});
+
+module.exports = pool;

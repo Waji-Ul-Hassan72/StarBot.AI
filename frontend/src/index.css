@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+/* Ensure body and root take 100% height and width */
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevents unwanted window scrollbars */
+}
