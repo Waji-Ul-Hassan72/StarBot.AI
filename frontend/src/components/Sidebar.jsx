@@ -6,7 +6,9 @@ import {
   User,
   Sparkles,
   Cpu,
-  Radio
+  Radio,
+  Trash2,
+  Pin
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -14,6 +16,8 @@ export default function Sidebar({
   chats = [],
   activeChatId,
   onSelectChat,
+  onDeleteChat,
+  onTogglePin,
   currentView,
   onNavigate
 }) {
@@ -26,11 +30,18 @@ export default function Sidebar({
     return () => clearInterval(interval);
   }, []);
 
+  // Sort chats: Pinned chats first, keeping original order for others
+  const sortedChats = [...chats].sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    return 0;
+  });
+
   return (
     <aside className="w-64 h-full bg-[#18191c] border-r border-[#25272e] flex flex-col justify-between p-4 z-20 shrink-0 select-none">
       
       {/* TOP SECTION: BRAND & NEW CHAT */}
-      <div className="flex flex-col gap-5 overflow-hidden">
+      <div className="flex flex-col gap-5 overflow-hidden flex-1">
         
         {/* APP BRAND HEADER */}
         <div className="flex items-center gap-3 px-2 pt-1">
@@ -69,18 +80,6 @@ export default function Sidebar({
           </button>
 
           <button
-            onClick={() => onNavigate('analytics')}
-            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition ${
-              currentView === 'analytics'
-                ? 'bg-[#23252a] text-white'
-                : 'text-[#80838d] hover:text-white hover:bg-[#1f2024]'
-            }`}
-          >
-            <BarChart2 className="w-4 h-4 text-purple-400" />
-            <span>Analytics</span>
-          </button>
-
-          <button
             onClick={() => onNavigate('account')}
             className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition ${
               currentView === 'account'
@@ -93,66 +92,77 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* RECENT CHATS LIST */}
-        <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar">
+        {/* RECENT CHATS LIST (Scrollbar completely hidden) */}
+        <div className="flex flex-col flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <span className="text-[10px] font-semibold text-[#5b5d66] uppercase tracking-wider px-2 mb-2">
             Recent Conversations
           </span>
 
-          {chats.length === 0 ? (
+          {sortedChats.length === 0 ? (
             <p className="text-xs text-[#5b5d66] italic px-2 py-1">No chats yet</p>
           ) : (
             <div className="flex flex-col gap-1">
-              {chats.map((chat) => (
-                <button
-                  key={chat.id}
-                  onClick={() => onSelectChat(chat.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs truncate transition flex items-center gap-2 ${
-                    activeChatId === chat.id
-                      ? 'bg-[#25272e] text-white font-medium border-l-2 border-indigo-500'
-                      : 'text-[#80838d] hover:text-white hover:bg-[#1f2024]'
-                  }`}
-                >
-                  <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60" />
-                  <span className="truncate">{chat.title || 'Untitled Chat'}</span>
-                </button>
-              ))}
+              {sortedChats.map((chat) => {
+                const chatId = chat.id || chat._id;
+                const isActive = activeChatId === chatId;
+                const isPinned = Boolean(chat.isPinned);
+
+                return (
+                  <div
+                    key={chatId}
+                    onClick={() => onSelectChat(chatId)}
+                    className={`group relative flex items-center justify-between px-3 py-2 rounded-lg text-xs cursor-pointer transition ${
+                      isActive
+                        ? 'bg-[#25272e] text-white font-medium border-l-2 border-indigo-500'
+                        : 'text-[#80838d] hover:text-white hover:bg-[#1f2024]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0 pr-2">
+                      <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60" />
+                      <span className="truncate">{chat.title || 'Untitled Chat'}</span>
+                    </div>
+
+                    {/* ACTION BUTTONS */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* PIN CHAT BUTTON */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onTogglePin) {
+                            onTogglePin(chatId, e);
+                          }
+                        }}
+                        title={isPinned ? "Unpin conversation" : "Pin conversation"}
+                        className={`p-1 rounded transition ${
+                          isPinned
+                            ? 'text-amber-400 hover:bg-amber-400/10 opacity-100'
+                            : 'text-[#71737c] hover:text-white hover:bg-[#2d3039] opacity-0 group-hover:opacity-100'
+                        }`}
+                      >
+                        <Pin className={`w-3.5 h-3.5 ${isPinned ? 'fill-amber-400' : ''}`} />
+                      </button>
+
+                      {/* DELETE CHAT BUTTON */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onDeleteChat) {
+                            onDeleteChat(chatId, e);
+                          }
+                        }}
+                        title="Delete conversation"
+                        className="opacity-0 group-hover:opacity-100 p-1 text-[#71737c] hover:text-red-400 hover:bg-red-500/10 rounded transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </div>
-      </div>
-
-      {/* FOOTER: LIVE TELEMETRY CARD */}
-      <div className="pt-3 border-t border-[#25272e]">
-        <div className="p-3 bg-[#121316] border border-[#23252a] rounded-xl flex flex-col gap-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-              <span className="text-[11px] font-medium text-emerald-400">Operational</span>
-            </div>
-            <span className="text-[10px] font-mono text-[#71737c]">{latency}ms</span>
-          </div>
-
-          <div className="flex items-center justify-between pt-1 border-t border-[#1c1d22] text-[11px] text-[#80838d]">
-            <div className="flex items-center gap-1.5">
-              <Cpu className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Engine</span>
-            </div>
-            <span className="font-semibold text-white text-[10px] bg-[#1d1f25] px-2 py-0.5 rounded-md border border-[#2a2d36]">
-              Starbot v2.4
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-[10px] text-[#5b5d66]">
-            <div className="flex items-center gap-1">
-              <Radio className="w-3 h-3 text-cyan-400 animate-pulse" />
-              <span>Live Node</span>
-            </div>
-            <span>99.9% Uptime</span>
-          </div>
         </div>
       </div>
 

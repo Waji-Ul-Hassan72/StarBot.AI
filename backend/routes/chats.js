@@ -93,6 +93,39 @@ router.post("/", authenticateToken, async (req, res) => {
     }
 });
 
+// Change 'app.patch' and '/api/chats/:id/pin' to 'router.patch' and '/:id/pin'
+router.patch('/:id/pin', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  
+  // Verify your JWT middleware populates req.user correctly
+  // Use req.user.id, req.user.userId, or req.user.user_id based on your token payload
+  const userId = req.user?.id || req.user?.userId || req.user?.user_id;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'User ID missing from auth token' });
+  }
+
+  try {
+    // Replace 'pool' or 'db' with whatever database module variable name you imported in this file
+    const result = await pool.query(
+      `UPDATE chats 
+       SET is_pinned = NOT COALESCE(is_pinned, false) 
+       WHERE id = $1 AND user_id = $2 
+       RETURNING *`,
+      [id, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Chat not found or unauthorized' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error toggling pin status:', err);
+    res.status(500).json({ error: 'Failed to update pin status', details: err.message });
+  }
+});
+
 // 4. SAVE A MESSAGE TO AN EXISTING CHAT
 // Route: POST /api/chats/:id/message
 router.post("/:id/message", authenticateToken, async (req, res) => {
@@ -120,6 +153,36 @@ router.post("/:id/message", authenticateToken, async (req, res) => {
     } catch (err) {
         console.error("Error saving message:", err);
         res.status(500).json({ error: "Server error saving message" });
+    }
+});
+
+// 5. DELETE A CHAT SESSION AND ITS MESSAGES
+// Route: DELETE /api/chats/:id
+router.delete("/:id", authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const chatId = req.params.id;
+
+        // Verify that the chat exists and belongs to the authenticated user
+        const chatCheck = await pool.query(
+            "SELECT * FROM chats WHERE id = $1 AND user_id = $2",
+            [chatId, userId]
+        );
+
+        if (chatCheck.rows.length === 0) {
+            return res.status(404).json({ error: "Chat not found or unauthorized" });
+        }
+
+        // Delete all messages associated with this chat session first
+        await pool.query("DELETE FROM messages WHERE chat_id = $1", [chatId]);
+
+        // Delete the chat row itself
+        await pool.query("DELETE FROM chats WHERE id = $1 AND user_id = $2", [chatId, userId]);
+
+        res.json({ message: "Chat session deleted successfully" });
+    } catch (err) {
+        console.error("Error deleting chat:", err);
+        res.status(500).json({ error: "Server error deleting chat session" });
     }
 });
 
